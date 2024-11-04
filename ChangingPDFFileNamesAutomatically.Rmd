@@ -1,0 +1,87 @@
+---
+title: "ChangingPDFFileNamesAutomatically"
+author: "Gizem Kaya"
+date: "2024-11-04"
+output: html_document
+---
+
+```{r}
+#Load the necessary libraries (If you don't have them, first install them by removing the hashtag from the code below.)
+#install.packages(c("pdftools", "tidyverse", "stringr"))
+
+library(pdftools)
+library(tidyverse)
+library(stringr)
+
+#Assume that you have a folder on your desktop containing many PDF news documents that you want to automatically change their file names by writing these news dates before each file name. 
+
+#Path to the folder containing the PDF files (Find your file's path and change the code line below.)
+pdf_folder <- "/Users/username/Desktop/pdffoldername/"
+
+#Get a list of PDF files in the folder (to avoid case sensitivity, you can put (?i) before the \\.pdf$)
+pdf_files <- list.files(pdf_folder, pattern = "\\.pdf$", full.names = TRUE)
+
+#Create an empty list to store data frames for each PDF file
+pdf_dfs <- list()
+
+#Loop through each PDF file
+for (pdf_file in pdf_files) {
+  #Extract text from the PDF file
+  pdf_text_all <- pdf_text(pdf_file)
+  
+  #Convert the text to a single string
+  pdf_text_combined <- paste(pdf_text_all, collapse = "\n")
+  
+  #Create a dataframe with the text and file name
+  pdf_df <- data.frame(text = pdf_text_combined, file_name = basename(pdf_file))
+  
+  #Append the dataframe to the list
+  pdf_dfs[[pdf_file]] <- pdf_df
+}
+
+#Combine dataframes into a single dataframe
+combined_news <- do.call(rbind, pdf_dfs)
+
+#Print the combined dataframe
+print(combined_news)
+
+#Pattern to match the date
+pattern_date <- "(?:January|February|March|April|May|June|July|August|September|October|November|December) \\d{1,2}, \\d{4}"
+
+#Creating the date column 
+#Extract the date using regex and write them in a separate column
+combined_news$date <- str_extract(combined_news$text, pattern_date)
+
+combined_news <- combined_news %>%
+  mutate(date2 = as.Date(strptime(date, format = "%B %d, %Y")),  
+#Adjust date format as needed (month-day-year)
+         DateFormatted = format(date2, "%m%d%Y"),                
+         NewTitle = paste0(DateFormatted, "_", file_name))  
+
+#Second Step - Changing each file name of the folder automatically
+#Set the working directory where the PDF files are stored
+setwd("/Users/username/Desktop/pdffoldername/")
+
+#List all PDF files in the directory
+pdf_files <- list.files(pattern = "*.pdf")
+
+#Assume that 'NewTitle' is the list of new file names
+NewTitle <- combined_news$NewTitle
+
+#Make sure the number of PDF files matches the number of new titles
+if(length(pdf_files) == length(NewTitle)) {
+  
+  #Create new names for the PDF files
+  new_names <- paste0(NewTitle)  
+
+  #Rename the files
+  file.rename(pdf_files, new_names)
+
+} else {
+  stop("Number of PDF files does not match the number of new titles")
+}
+
+#Verify that the files have been renamed
+list.files(pattern = "*.pdf")
+```
+
